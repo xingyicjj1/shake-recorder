@@ -176,9 +176,9 @@ class ShakeService : Service() {
     }
 
     private fun buildNotification(text: String): Notification {
-        // 未在录音时点通知 -> 去录音文件列表；录音中 -> 去录音控制页
-        val target: Class<*> = if (isRecording) RecorderActivity::class.java else FileListActivity::class.java
-        val reqCode = if (isRecording) 3 else 4
+        // 点通知一律进入「录音文件列表」（录音中的暂停/停止请用通知里的按钮）
+        val target: Class<*> = FileListActivity::class.java
+        val reqCode = 4
         val pi = PendingIntent.getActivity(
             this, reqCode,
             Intent(this, target).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
