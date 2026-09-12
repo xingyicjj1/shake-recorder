@@ -50,6 +50,10 @@
             android:name=".ShakeService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+
+        <service
+            android:name=".PlaybackService"
+            android:exported="false" />
     </application>
 
 </manifest>
