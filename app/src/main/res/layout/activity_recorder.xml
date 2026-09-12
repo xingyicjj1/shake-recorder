@@ -5,16 +5,30 @@
     android:orientation="vertical"
     android:gravity="center"
     android:padding="32dp"
-    android:background="#FF2D2D">
+    android:background="#2A1B3D">
 
-    <TextView
-        android:id="@+id/tvState"
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="录音中…"
-        android:textColor="#FFFFFF"
-        android:textSize="18sp"
-        android:layout_marginBottom="16dp" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="20dp">
+
+        <View
+            android:id="@+id/dotRec"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:background="@drawable/bg_circle"
+            android:layout_marginEnd="10dp" />
+
+        <TextView
+            android:id="@+id/tvState"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="录音中…"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/tvTimer"
@@ -36,7 +50,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="暂停"
-            android:textSize="18sp" />
+            android:textSize="18sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#4A2F63" />
 
         <Button
             android:id="@+id/btnStop"
@@ -44,6 +60,8 @@
             android:layout_height="wrap_content"
             android:text="停止并保存"
             android:textSize="18sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#6200EE"
             android:layout_marginStart="16dp" />
     </LinearLayout>
 </LinearLayout>
