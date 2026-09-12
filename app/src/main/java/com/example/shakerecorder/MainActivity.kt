@@ -12,13 +12,13 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         val btnToggle = findViewById<Button>(R.id.btnToggle)
         val tvStatus = findViewById<TextView>(R.id.tvStatus)
+        val btnFiles = findViewById<Button>(R.id.btnFiles)
 
         btnToggle.setOnClickListener {
             if (!hasPermissions()) {
@@ -28,7 +28,11 @@ class MainActivity : AppCompatActivity() {
             startService()
             btnToggle.isEnabled = false
             btnToggle.text = "已在后台监听"
-            tvStatus.text = "状态：已开启，锁屏也能用。左右交替摇晃两次试试！"
+            tvStatus.text = "状态：已开启，锁屏也能用。\n左右交替摇晃两次开始录音，再摇两次停止。"
+        }
+
+        btnFiles.setOnClickListener {
+            startActivity(Intent(this, FileListActivity::class.java))
         }
     }
 
@@ -66,7 +70,8 @@ class MainActivity : AppCompatActivity() {
                 isEnabled = false
                 text = "已在后台监听"
             }
-            findViewById<TextView>(R.id.tvStatus).text = "状态：已开启，锁屏也能用。左右交替摇晃两次试试！"
+            findViewById<TextView>(R.id.tvStatus).text =
+                "状态：已开启，锁屏也能用。\n左右交替摇晃两次开始录音，再摇两次停止。"
         }
     }
 }
