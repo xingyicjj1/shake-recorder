@@ -24,6 +24,8 @@ class MainActivity : AppCompatActivity() {
         val tvStatus = findViewById<TextView>(R.id.tvStatus)
         val btnFiles = findViewById<Button>(R.id.btnFiles)
         val btnBattery = findViewById<Button>(R.id.btnBattery)
+        val btnSettings = findViewById<Button>(R.id.btnSettings)
+        btnSettings.setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
 
         btnToggle.setOnClickListener {
             if (!hasPermissions()) {
