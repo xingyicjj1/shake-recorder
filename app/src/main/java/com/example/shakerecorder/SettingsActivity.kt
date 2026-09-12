@@ -79,15 +79,4 @@ class SettingsActivity : AppCompatActivity() {
             Toast.makeText(this, "无法打开设置页", Toast.LENGTH_SHORT).show()
         }
     }
-
-    private fun openHonorBackgroundPopup() {
-        // 荣耀/华为：后台弹出界面权限（MIUI/oppo 等也有类似页）
-        try {
-            val i = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.parse("package:$packageName")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            startActivity(i)
-        } catch (_: Exception) {}
-    }
 }
