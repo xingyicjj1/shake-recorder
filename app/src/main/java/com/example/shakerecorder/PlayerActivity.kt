@@ -1,11 +1,10 @@
 package com.example.shakerecorder
 
 import android.media.MediaPlayer
-import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.widget.Button
+import android.widget.ImageButton
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -24,14 +23,15 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var tvName: TextView
     private lateinit var tvTime: TextView
     private lateinit var seekBar: SeekBar
-    private lateinit var btnPlay: Button
-    private lateinit var btnShare: Button
-    private lateinit var btnDelete: Button
+    private lateinit var btnPlay: android.widget.Button
+    private lateinit var btnShare: ImageButton
+    private lateinit var btnDelete: ImageButton
+    private lateinit var btnBack: ImageButton
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_player)
-        title = "播放录音"
+        supportActionBar?.hide()
 
         val path = intent.getStringExtra("path") ?: run { finish(); return }
         file = File(path)
@@ -42,12 +42,14 @@ class PlayerActivity : AppCompatActivity() {
         btnPlay = findViewById(R.id.btnPlay)
         btnShare = findViewById(R.id.btnShare)
         btnDelete = findViewById(R.id.btnDelete)
+        btnBack = findViewById(R.id.btnBack)
 
         tvName.text = file.name
 
         btnPlay.setOnClickListener { toggle() }
         btnShare.setOnClickListener { share() }
         btnDelete.setOnClickListener { delete() }
+        btnBack.setOnClickListener { finish() }
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
@@ -67,11 +69,11 @@ class PlayerActivity : AppCompatActivity() {
         if (playing) {
             player!!.pause()
             playing = false
-            btnPlay.text = "播放"
+            btnPlay.text = "▶"
         } else {
             player!!.start()
             playing = true
-            btnPlay.text = "暂停"
+            btnPlay.text = "⏸"
             tick()
         }
     }
@@ -103,7 +105,7 @@ class PlayerActivity : AppCompatActivity() {
                     updateTime()
                     if (!player!!.isPlaying) {
                         playing = false
-                        btnPlay.text = "播放"
+                        btnPlay.text = "▶"
                     }
                     handler.postDelayed(this, 200)
                 }
