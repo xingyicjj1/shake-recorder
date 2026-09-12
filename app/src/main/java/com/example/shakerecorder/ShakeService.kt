@@ -14,6 +14,11 @@ import android.media.MediaRecorder
 import android.os.Binder
 import android.os.Build
 import android.os.SystemClock
+import android.os.PowerManager
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import java.util.concurrent.TimeUnit
 import android.os.IBinder
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -31,6 +36,8 @@ class ShakeService : Service() {
 
     private lateinit var sensorManager: SensorManager
     private var watchdog: java.util.Timer? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var lastReRegisterAt = 0L
     private lateinit var detector: ShakeDetector
     private var listening = false
 
@@ -58,7 +65,9 @@ class ShakeService : Service() {
         super.onCreate()
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         detector = ShakeDetector { toggleRecord() }
+        acquireWakeLock()
         startWatchdog()
+        scheduleReviver()
     }
 
     // 看门狗：系统降级/静默限制后自动重新注册传感器，保证后台持续可触发
@@ -68,9 +77,12 @@ class ShakeService : Service() {
                 override fun run() {
                     try {
                         if (!listening) { startListening(); return }
+                        // 熄屏时传感器本就停止上报（系统省电），不要误判成被限制
+                        if (!isScreenOn()) return
                         val idle = SystemClock.uptimeMillis() - detector.lastEventAt()
-                        // 超过 6 秒没收到传感器数据 => 认为被系统限制，重新注册
-                        if (idle > 6000) reRegisterSensor()
+                        val sinceReReg = SystemClock.uptimeMillis() - lastReRegisterAt
+                        // 亮屏且超过 8 秒无数据才重注册；重注册后给 2 秒静默期，避免数值跳变误判成摇晃
+                        if (idle > 8000 && sinceReReg > 10000) reRegisterSensor()
                     } catch (_: Exception) {}
                 }
             }, 5000, 5000)
@@ -78,9 +90,27 @@ class ShakeService : Service() {
     }
 
     private fun reRegisterSensor() {
+        lastReRegisterAt = SystemClock.uptimeMillis()
         try { sensorManager.unregisterListener(detector) } catch (_: Exception) {}
         listening = false
         startListening()
+        // 重注册瞬间数值跳变，忽略这一下，避免误判成摇晃
+        detector.ignoreUntil(SystemClock.uptimeMillis() + 1500)
+    }
+
+    private fun isScreenOn(): Boolean {
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        return pm.isInteractive
+    }
+
+    private fun acquireWakeLock() {
+        try {
+            if (wakeLock == null) {
+                val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "shakerecorder:listen")
+            }
+            if (wakeLock?.isHeld != true) wakeLock?.acquire()
+        } catch (_: Exception) {}
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -246,6 +276,17 @@ class ShakeService : Service() {
         super.onDestroy()
         if (isRecording) stopAndSave()
         try { watchdog?.cancel(); watchdog = null } catch (_: Exception) {}
+        try { if (wakeLock?.isHeld == true) wakeLock?.release(); wakeLock = null } catch (_: Exception) {}
         if (listening) { sensorManager.unregisterListener(detector); listening = false }
+    }
+
+    // 兜底：周期任务在系统回收后把服务拉回来
+    private fun scheduleReviver() {
+        try {
+            val req = PeriodicWorkRequestBuilder<ReviveWorker>(15, TimeUnit.MINUTES).build()
+            WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "revive_shake", ExistingPeriodicWorkPolicy.KEEP, req
+            )
+        } catch (_: Exception) {}
     }
 }
