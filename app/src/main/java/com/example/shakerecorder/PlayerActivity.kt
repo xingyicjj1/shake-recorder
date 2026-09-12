@@ -45,7 +45,7 @@ class PlayerActivity : AppCompatActivity() {
         btnShare = findViewById(R.id.btnShare)
         btnDelete = findViewById(R.id.btnDelete)
         btnBack = findViewById(R.id.btnBack)
-        waveform = findViewById(R.id.waveform)
+        waveform = findViewById<WaveformView>(R.id.waveform)
 
         tvName.text = file.name
         waveform.setAmplitudes(generateMockWave(file.length()))
@@ -60,7 +60,8 @@ class PlayerActivity : AppCompatActivity() {
                 if (fromUser && player != null) {
                     player!!.seekTo(p)
                     updateTime()
-                    waveform.setProgress(p.toFloat() / seekBar.max)
+                    val frac = if (seekBar.max > 0) p.toFloat() / seekBar.max.toFloat() else 0f
+                    waveform.setProgress(frac)
                 }
             }
             override fun onStartTrackingTouch(s: SeekBar?) {}
@@ -122,7 +123,8 @@ class PlayerActivity : AppCompatActivity() {
                 if (playing && player != null) {
                     seekBar.progress = player!!.currentPosition
                     updateTime()
-                    waveform.setProgress(player!!.currentPosition.toFloat() / seekBar.max)
+                    val frac = if (seekBar.max > 0) player!!.currentPosition.toFloat() / seekBar.max.toFloat() else 0f
+                    waveform.setProgress(frac)
                     if (!player!!.isPlaying) {
                         playing = false
                         btnPlay.setImageResource(android.R.drawable.ic_media_play)
