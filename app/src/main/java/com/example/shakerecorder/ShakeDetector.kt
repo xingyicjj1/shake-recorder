@@ -26,14 +26,10 @@ class ShakeDetector(private val onTrigger: () -> Unit) : SensorEventListener {
 
     private val swings = ArrayDeque<Pair<Long, Int>>() // (时间戳, 方向) +1=右 -1=左
     private var lastDirection = 0
-    private var lastEvent = 0L
-    private var ignoreUntilMs = 0L
     private var lastSwingTime = 0L
     private var lastTrigger = 0L
 
     override fun onSensorChanged(event: SensorEvent?) {
-        if (android.os.SystemClock.uptimeMillis() < ignoreUntilMs) return
-        lastEvent = android.os.SystemClock.uptimeMillis()
         if (event?.sensor?.type != Sensor.TYPE_ACCELEROMETER) return
         val x = event.values[0]
         val now = System.currentTimeMillis()
@@ -71,8 +67,4 @@ class ShakeDetector(private val onTrigger: () -> Unit) : SensorEventListener {
         lastDirection = 0
         lastSwingTime = 0L
     }
-
-    fun lastEventAt(): Long = lastEvent
-
-    fun ignoreUntil(ms: Long) { ignoreUntilMs = ms }
 }
