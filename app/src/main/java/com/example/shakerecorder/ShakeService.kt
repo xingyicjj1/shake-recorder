@@ -10,6 +10,9 @@ import android.hardware.Sensor
 import android.hardware.SensorManager
 import android.os.Build
 import android.os.IBinder
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
 
 class ShakeService : Service() {
@@ -49,10 +52,31 @@ class ShakeService : Service() {
     }
 
     private fun launchRecorder() {
+        vibrate()
         val intent = Intent(this, RecorderActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         startActivity(intent)
+    }
+
+    private fun vibrate() {
+        try {
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                vm.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(120, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(120)
+            }
+        } catch (_: Exception) {
+            // 震动失败不影响录音启动
+        }
     }
 
     private fun buildNotification(text: String): Notification =
