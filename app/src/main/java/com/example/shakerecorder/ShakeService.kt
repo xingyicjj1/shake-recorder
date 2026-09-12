@@ -67,7 +67,17 @@ class ShakeService : Service() {
             "resume" -> { resumeRecording(); return START_STICKY }
             else -> startListening()
         }
+        startListening()
         return START_STICKY
+    }
+
+    // 服务被系统杀死后重建时，确保重新注册传感器监听
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        val restart = Intent(applicationContext, ShakeService::class.java).apply {
+            action = ACTION_START
+        }
+        try { startForegroundService(restart) } catch (_: Exception) {}
     }
 
     private fun startListening() {
