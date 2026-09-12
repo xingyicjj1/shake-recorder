@@ -10,6 +10,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -23,10 +24,11 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var tvName: TextView
     private lateinit var tvTime: TextView
     private lateinit var seekBar: SeekBar
-    private lateinit var btnPlay: android.widget.Button
+    private lateinit var btnPlay: FloatingActionButton
     private lateinit var btnShare: ImageButton
     private lateinit var btnDelete: ImageButton
     private lateinit var btnBack: ImageButton
+    private lateinit var waveform: WaveformView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,8 +45,10 @@ class PlayerActivity : AppCompatActivity() {
         btnShare = findViewById(R.id.btnShare)
         btnDelete = findViewById(R.id.btnDelete)
         btnBack = findViewById(R.id.btnBack)
+        waveform = findViewById(R.id.waveform)
 
         tvName.text = file.name
+        waveform.setAmplitudes(generateMockWave(file.length()))
 
         btnPlay.setOnClickListener { toggle() }
         btnShare.setOnClickListener { share() }
@@ -56,11 +60,26 @@ class PlayerActivity : AppCompatActivity() {
                 if (fromUser && player != null) {
                     player!!.seekTo(p)
                     updateTime()
+                    waveform.setProgress(p.toFloat() / seekBar.max)
                 }
             }
             override fun onStartTrackingTouch(s: SeekBar?) {}
             override fun onStopTrackingTouch(s: SeekBar?) {}
         })
+    }
+
+    private fun generateMockWave(len: Long): FloatArray {
+        // 仅用于占位可视化：依据文件大小生成伪随机包络
+        val n = 72
+        val arr = FloatArray(n)
+        var seed = len.takeLast(8).toLongOrNull() ?: 12345L
+        for (i in 0 until n) {
+            seed = (seed * 1103515245 + 12345) and 0x7fffffff
+            val base = (seed % 100) / 100f
+            val env = kotlin.math.sin(i.toFloat() / n * Math.PI).toFloat()
+            arr[i] = (0.25f + base * 0.75f) * (0.4f + env * 0.6f)
+        }
+        return arr
     }
 
     private fun toggle() {
@@ -69,11 +88,11 @@ class PlayerActivity : AppCompatActivity() {
         if (playing) {
             player!!.pause()
             playing = false
-            btnPlay.text = "▶"
+            btnPlay.setImageResource(android.R.drawable.ic_media_play)
         } else {
             player!!.start()
             playing = true
-            btnPlay.text = "⏸"
+            btnPlay.setImageResource(android.R.drawable.ic_media_pause)
             tick()
         }
     }
@@ -103,9 +122,10 @@ class PlayerActivity : AppCompatActivity() {
                 if (playing && player != null) {
                     seekBar.progress = player!!.currentPosition
                     updateTime()
+                    waveform.setProgress(player!!.currentPosition.toFloat() / seekBar.max)
                     if (!player!!.isPlaying) {
                         playing = false
-                        btnPlay.text = "▶"
+                        btnPlay.setImageResource(android.R.drawable.ic_media_play)
                     }
                     handler.postDelayed(this, 200)
                 }
