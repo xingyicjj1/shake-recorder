@@ -13,6 +13,7 @@ import android.hardware.SensorManager
 import android.media.MediaRecorder
 import android.os.Binder
 import android.os.Build
+import android.os.SystemClock
 import android.os.IBinder
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -29,6 +30,7 @@ class ShakeService : Service() {
     inner class LocalBinder : Binder() { fun getService(): ShakeService = this@ShakeService }
 
     private lateinit var sensorManager: SensorManager
+    private var watchdog: java.util.Timer? = null
     private lateinit var detector: ShakeDetector
     private var listening = false
 
@@ -56,6 +58,29 @@ class ShakeService : Service() {
         super.onCreate()
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         detector = ShakeDetector { toggleRecord() }
+        startWatchdog()
+    }
+
+    // 看门狗：系统降级/静默限制后自动重新注册传感器，保证后台持续可触发
+    private fun startWatchdog() {
+        watchdog = java.util.Timer().apply {
+            scheduleAtFixedRate(object : java.util.TimerTask() {
+                override fun run() {
+                    try {
+                        if (!listening) { startListening(); return }
+                        val idle = SystemClock.uptimeMillis() - detector.lastEventAt()
+                        // 超过 6 秒没收到传感器数据 => 认为被系统限制，重新注册
+                        if (idle > 6000) reRegisterSensor()
+                    } catch (_: Exception) {}
+                }
+            }, 5000, 5000)
+        }
+    }
+
+    private fun reRegisterSensor() {
+        try { sensorManager.unregisterListener(detector) } catch (_: Exception) {}
+        listening = false
+        startListening()
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -220,6 +245,7 @@ class ShakeService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         if (isRecording) stopAndSave()
+        try { watchdog?.cancel(); watchdog = null } catch (_: Exception) {}
         if (listening) { sensorManager.unregisterListener(detector); listening = false }
     }
 }
