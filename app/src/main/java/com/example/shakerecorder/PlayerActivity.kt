@@ -73,7 +73,7 @@ class PlayerActivity : AppCompatActivity() {
         // 仅用于占位可视化：依据文件大小生成伪随机包络
         val n = 72
         val arr = FloatArray(n)
-        var seed = len.takeLast(8).toLongOrNull() ?: 12345L
+        var seed = (len xor 0x123456789L).let { if (it == 0L) 12345L else it }
         for (i in 0 until n) {
             seed = (seed * 1103515245 + 12345) and 0x7fffffff
             val base = (seed % 100) / 100f
