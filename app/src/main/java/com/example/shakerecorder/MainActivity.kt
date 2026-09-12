@@ -34,6 +34,7 @@ class MainActivity : AppCompatActivity() {
             }
             startService()
             markOn(btnToggle, tvStatus)
+            tvStatus.text = "已开启 — App 退到后台也持续监听（请为 App 加锁/设电池无限制）"
         }
 
         btnFiles.setOnClickListener {
@@ -84,6 +85,7 @@ class MainActivity : AppCompatActivity() {
         }
         ContextCompat.startForegroundService(this, intent)
     }
+
 
     private fun isIgnoringBattery(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
