@@ -176,8 +176,14 @@ class ShakeService : Service() {
     }
 
     private fun buildNotification(text: String): Notification {
-        val pi = PendingIntent.getActivity(this, 3, Intent(this, RecorderActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        // 未在录音时点通知 -> 去录音文件列表；录音中 -> 去录音控制页
+        val target: Class<*> = if (isRecording) RecorderActivity::class.java else FileListActivity::class.java
+        val reqCode = if (isRecording) 3 else 4
+        val pi = PendingIntent.getActivity(
+            this, reqCode,
+            Intent(this, target).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         val actions = mutableListOf<NotificationCompat.Action>()
         if (isRecording) {
             val toggle = if (isPaused) "继续" to android.R.drawable.ic_media_play
