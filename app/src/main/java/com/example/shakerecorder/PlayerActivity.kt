@@ -1,12 +1,8 @@
 package com.example.shakerecorder
 
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import android.content.ServiceConnection
+import android.media.MediaPlayer
 import android.os.Bundle
 import android.os.Handler
-import android.os.IBinder
 import android.os.Looper
 import android.widget.ImageButton
 import android.widget.SeekBar
@@ -19,15 +15,17 @@ import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
+/**
+ * 播放页：页面内 MediaPlayer 播放（可靠，不依赖后台服务），
+ * 真实波形解码显示，支持暂停/继续/拖动/分享/删除。
+ */
 class PlayerActivity : AppCompatActivity() {
 
     private lateinit var file: File
+    private var player: MediaPlayer? = null
     private var playing = false
     private val handler = Handler(Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor()
-
-    private var svc: PlaybackService? = null
-    private var bound = false
 
     private lateinit var tvName: TextView
     private lateinit var tvTime: TextView
@@ -38,15 +36,6 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var btnBack: ImageButton
     private lateinit var waveform: WaveformView
 
-    private val conn = object : ServiceConnection {
-        override fun onServiceConnected(n: ComponentName?, b: IBinder?) {
-            svc = (b as PlaybackService.LocalBinder).getService()
-            bound = true
-            updateUI()
-        }
-        override fun onServiceDisconnected(n: ComponentName?) { bound = false }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_player)
@@ -54,6 +43,7 @@ class PlayerActivity : AppCompatActivity() {
 
         val p = intent.getStringExtra("path") ?: run { finish(); return }
         file = File(p)
+        if (!file.exists()) { Toast.makeText(this, "文件不存在", Toast.LENGTH_SHORT).show(); finish(); return }
 
         tvName = findViewById(R.id.tvName)
         tvTime = findViewById(R.id.tvTime)
@@ -65,6 +55,8 @@ class PlayerActivity : AppCompatActivity() {
         waveform = findViewById<WaveformView>(R.id.waveform)
 
         tvName.text = file.name
+        btnPlay.setImageResource(android.R.drawable.ic_media_play)
+
         btnPlay.setOnClickListener { toggle() }
         btnShare.setOnClickListener { share() }
         btnDelete.setOnClickListener { delete() }
@@ -79,71 +71,68 @@ class PlayerActivity : AppCompatActivity() {
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(s: SeekBar?, prog: Int, fromUser: Boolean) {
-                if (fromUser && bound) {
-                    svc?.seekTo(prog)
-                    updateUI()
+                if (fromUser && player != null) {
+                    player!!.seekTo(prog)
+                    updateTime()
                 }
             }
             override fun onStartTrackingTouch(s: SeekBar?) {}
             override fun onStopTrackingTouch(s: SeekBar?) {}
         })
+
+        initPlayer()
     }
 
-    override fun onStart() {
-        super.onStart()
-        bindService(Intent(this, PlaybackService::class.java), conn, Context.BIND_AUTO_CREATE)
-        handler.post(tick)
-    }
-
-    override fun onStop() {
-        super.onStop()
-        if (bound) { unbindService(conn); bound = false }
-    }
-
-    private val tick = object : Runnable {
-        override fun run() {
-            if (bound) updateUI()
-            handler.postDelayed(this, 200)
+    private fun initPlayer() {
+        try {
+            player = MediaPlayer().apply {
+                setDataSource(file.absolutePath)
+                setOnCompletionListener {
+                    playing = false
+                    btnPlay.setImageResource(android.R.drawable.ic_media_play)
+                    seekBar.progress = 0
+                    waveform.setProgress(0f)
+                }
+                prepare()
+            }
+            seekBar.max = player!!.duration
+            tvTime.text = "00:00 / ${fmt(player!!.duration)}"
+        } catch (e: Exception) {
+            Toast.makeText(this, "无法播放：${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun toggle() {
-        if (!bound) return
-        val s = svc ?: return
-        if (s.isPlaying()) { s.pause(); playing = false }
-        else {
-            if (s.path != file.absolutePath) {
-                s.stopAndRelease()
-                startForegroundServiceCompat()
-                s.startPlay(file.absolutePath)
-            } else {
-                s.startPlay(file.absolutePath)
-            }
+        val pl = player ?: return
+        if (playing) {
+            pl.pause()
+            playing = false
+            btnPlay.setImageResource(android.R.drawable.ic_media_play)
+        } else {
+            pl.start()
             playing = true
+            btnPlay.setImageResource(android.R.drawable.ic_media_pause)
+            tick()
         }
-        updateUI()
     }
 
-    private fun startForegroundServiceCompat() {
-        val i = Intent(this, PlaybackService::class.java)
-        androidx.core.content.ContextCompat.startForegroundService(this, i)
+    private fun updateTime() {
+        val cur = player?.currentPosition ?: 0
+        val tot = player?.duration ?: 0
+        tvTime.text = "${fmt(cur)} / ${fmt(tot)}"
+        if (tot > 0) waveform.setProgress(cur.toFloat() / tot.toFloat())
     }
 
-    private fun updateUI() {
-        val s = svc ?: return
-        val dur = s.duration()
-        val cur = s.currentPosition()
-        if (dur > 0) {
-            seekBar.max = dur
-            seekBar.progress = cur
-            tvTime.text = "${fmt(cur)} / ${fmt(dur)}"
-            waveform.setProgress(cur.toFloat() / dur.toFloat())
-        }
-        val nowPlaying = s.isPlaying()
-        btnPlay.setImageResource(
-            if (nowPlaying) android.R.drawable.ic_media_pause
-            else android.R.drawable.ic_media_play
-        )
+    private fun tick() {
+        handler.post(object : Runnable {
+            override fun run() {
+                if (playing && player != null) {
+                    seekBar.progress = player!!.currentPosition
+                    updateTime()
+                    handler.postDelayed(this, 200)
+                }
+            }
+        })
     }
 
     private fun placeholderWave(): FloatArray {
@@ -163,22 +152,25 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun share() {
         val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
-        val i = Intent(Intent.ACTION_SEND).apply {
+        val i = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
             type = "audio/*"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        startActivity(Intent.createChooser(i, "分享录音到"))
+        startActivity(android.content.Intent.createChooser(i, "分享录音到"))
     }
 
     private fun delete() {
-        svc?.stopAndRelease()
+        try { player?.release() } catch (_: Exception) {}
+        player = null
         if (file.delete()) Toast.makeText(this, "已删除", Toast.LENGTH_SHORT).show()
         finish()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        try { player?.release() } catch (_: Exception) {}
+        player = null
         executor.shutdown()
     }
 }
